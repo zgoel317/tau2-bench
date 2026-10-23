@@ -32,21 +32,23 @@ I analysed the paper's June 2025 runs (4 agents × 3 domains × 4 trials, `gpt-4
 
 ## 3. Experiment
 
-**Arms.** Baseline (A), a repeat to measure noise (A′), Fix 1 (B), Fix 2 (C), both (D), all from one commit with simulator `gpt-4.1-2025-04-14` at temperature 0, fixed seeds and no LLM cache. Agents: `gpt-4.1` and `gpt-4.1-mini` (51 of the 60 S2a/S2b failures).
+**Setup.** I compare five versions ("arms") that differ only in the fix: **A:** the current simulator, as the baseline, **A′:** the baseline run again, to show how much results vary by chance alone, **B:** Fix 1 only, **C:** Fix 2 only, and **D:** both fixes.
 
-**Cases.** The *target set* is the 33 tasks behind the S2 failures (8 trials each); the *guard set* (4 trials each) holds refusal tasks, transfer tasks the baseline passes, and 30 random tasks per domain.
+Everything else stays the same: one commit, the `gpt-4.1-2025-04-14` simulator at temperature 0, the same seeds, and no LLM cache. The agents are `gpt-4.1` and `gpt-4.1-mini`, which produced 51 of the 60 S2a/S2b failures.
 
-**Measures.** Primary: each target task's pass rate against A. Mechanism: text-plus-token messages vanish in C and D, the turn after a deferral holds the pending tool call, and old S2 failures become agent-caused. Guard pass rate, timeouts and post-task turns stay flat.
+**Tasks:** Performance should improve on the **Target set** (33 tasks where the simulator ended the call too early, each run 8 times) and the **Guard set** (tasks the fixes could break, each run 4 times) should not change. The Guard set should have refusal tasks, transfer tasks the baseline already passes, and 30 random tasks per domain.
 
-**Variability.** Failures cluster by task, so each task is compared with its own baseline, with task-bootstrap CIs and the A–A′ gap as the noise floor. A fix works if the target CI lower bound is above zero, or its S2 failures become agent-caused, with the guard set within noise.
+**What I measure.** The main result is each target task's pass rate compared with the baseline. To check that the fix worked as intended, messages like "Yes.###STOP###" should disappear in C and D, the agent should use the extra turn after a held-back end token for the action the user just agreed to, and any remaining S2 failures should now be the agent's fault. On the guard set, the pass rate, timeouts and turns after the task is done should stay the same.
+
+**Telling real effects from luck.** Some tasks fail far more than others, so I compare each task with itself in the baseline instead of pooling every run, with error bars from resampling tasks (a bootstrap). An effect counts only if it is larger than the A vs A′ difference. A fix works if the target set clearly improves (the error bar is above zero) or its remaining S2 failures become the agent's fault, and in both cases the guard set changes no more than chance would explain.
 
 ## 4. Challenging the conclusion
 
-**Fidelity.** Blind-audit a sample of transcripts per arm: did users pursue every item, end only when done, invent nothing, and end like a real caller?
+**Does the simulator behave like a real customer?** Check that the user pursued every request, ended only when finished, invented nothing, and ended the call naturally. **On the premise:** S1a's forgetting might be considered realistic so fixing it is debatable. Such a fix might make the user simulator less realistic. Ex: is "mentions location only if asked" less realistic than immediately mentioning location? S1a is also related to a very specific subset of trajectories (roaming), not to overarching simulator behavior.
 
-**Better simulator or easier task?** Gains should come only from the pending action in deferred or premature-end episodes. Users may add no new IDs: "what about my other order?" is fine, naming the item is coaching. An agent that says "transferring you" without the tool call must now fail. If agent scores converge, the task got easier.
+**Better simulator, or easier task?** Performance gains should appear only in conversations the old simulator ended too early. The user must give no new hints: "what about my other order?" is fine, naming the item ID is not. Some agents should lose points, e.g. one that says "transferring you" without calling the transfer tool. Strong and weak agents should stay as far apart as before.
 
-**What would change my mind.** No target gain beyond A–A′ noise, or agents rarely making the pending call after a deferral, would mean S2 doesn't affect scores. Refusal-task shifts would mean Fix 1 made users pushy. **On the premise:** S1a's fix is *controlled* forgetting ("mentions location only if asked") applied in every trial.
+**What would change my mind.** If scores don't improve beyond run-to-run noise, or agents rarely complete the action once given the extra turn, S2 doesn't distort results. If agents start giving in on refusal tasks, Fix 1 makes the user pushy, not realistic.
 
 **AI use.** I proposed both fixes, refined the counting rule and S1/S2 taxonomy, and outlined this report. Claude Code implemented the fix and analysis scripts, labelled the sampled conversations under my counting rule, and assembled the report.
 
@@ -54,7 +56,7 @@ I analysed the paper's June 2025 runs (4 agents × 3 domains × 4 trials, `gpt-4
 
 ## Appendix A. Evidence table
 
-| Code | Episode (agent · domain · task/trial) | Turn that matters | Expected | Root cause | Count (method) |
+| Code | Episode (agent · domain · task/trial) | Real example | Expected | Root cause | Count (method) |
 |---|---|---|---|---|---|
 | S2a | gpt-4.1-mini · retail · 102/0 | Agent: "Please confirm with a 'yes'" → User: *"Yes. Go ahead. Thanks.###STOP###"*; DB reward 0 | Wait for the write | Token ends the call anywhere in the message; no "agreeing ≠ done" rule in text prompts | 18 (exact; 10 after a re-ask) |
 | S2b | gpt-4.1 · telecom · airplane_mode_on\|break_apn_settings\|lock_sim_card_pin/0 | *"Would you like me to transfer you…"* → *"Yes, please transfer me…###TRANSFER###"*; ACTION 0 | Wait for the transfer | "clearly indicated" lets an offer count ([guidelines.py:256](https://github.com/sierra-research/tau2-bench/blob/cc1df47/src/tau2/user/guidelines.py#L256)) | 42 (exact; judgment call: policy neither requires nor forbids asking first) |
