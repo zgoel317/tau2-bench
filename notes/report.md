@@ -11,7 +11,7 @@ I analysed the paper's June 2025 runs (4 agents × 3 domains × 4 trials, `gpt-4
 - **S1b, 17:** it invents IDs when agents ask for ones they could look up.
 - **S1c, ≈16:** it asks for the wrong thing unprompted.
 
-*Cause/impact:* chance in the user's first message decides whether it says it is abroad, so agents pass or fail on luck; they share the blame, asking in only 38 of 760 episodes where it wasn't volunteered.
+*Cause/impact:* Whether the user's first message says it is abroad is up to chance, so agents pass or fail on luck; they share the blame, asking in only 38 of 760 episodes where it wasn't volunteered.
 
 **S2. When the simulator ends the call.** *Expected:* the user ends only once every request is carried out. *Observed:*
 - **S2a, 18:** it says "yes" and hangs up in one message, e.g. *"Yes. Go ahead. Thanks.###STOP###"*, before any write.
@@ -20,7 +20,7 @@ I analysed the paper's June 2025 runs (4 agents × 3 domains × 4 trials, `gpt-4
 
 *Cause:* the text prompts lack the voice prompt's "agreeing ≠ done" and "verify ALL items" rules and accept a transfer once *"clearly indicated"* ([guidelines.py](https://github.com/sierra-research/tau2-bench/blob/cc1df47/src/tau2/user/guidelines.py#L220)); the code ends the episode on a token anywhere in a message ([user_simulator.py](https://github.com/sierra-research/tau2-bench/blob/cc1df47/src/tau2/user/user_simulator.py#L142)). *Impact:* agents are scored on turns they never get.
 
-**Which first.** With S1a, S1 (≈730) dwarfs S2 (≈84); without it, S2 leads (≈84 vs ≈33). I prioritise S2, a protocol defect; forgetting is what real customers do, and forcing disclosure in S1a's task data would hand the agent the answer.
+**Which first.** With S1a, S1 (≈730) dwarfs S2 (≈84); without it, S2 leads (≈84 vs ≈33). I prioritise S2, a protocol defect. Forgetting information is plausible customer behavior, and forcing disclosure in S1a's task data would hand the agent the answer.
 
 ## 2. Two approaches
 
