@@ -222,7 +222,34 @@ class UserSimulator(
                         requestor="user",
                     )
                 )
+        if self.simulation_mode == "text":
+            self._defer_inline_stop(user_message, state)
         return user_message
+
+    @staticmethod
+    def _defer_inline_stop(user_message: UserMessage, state: UserStateType) -> None:
+        """Strip a STOP/TRANSFER token sent together with other text.
+
+        "Yes, go ahead.###STOP###" would otherwise end the call before the agent
+        can act on the yes. The text goes to the agent and the simulator decides
+        again next turn. Only once in a row, so a simulator that never sends a
+        bare token can't loop. OUT-OF-SCOPE is left alone. The original text is
+        still in raw_data.
+        """
+        if user_message.is_tool_call() or not user_message.content:
+            return
+        text = user_message.content
+        rest = text.replace(STOP, "").replace(TRANSFER, "").strip()
+        defer = (
+            (STOP in text or TRANSFER in text)
+            and bool(rest)
+            and OUT_OF_SCOPE not in text
+            and not state.deferred_stop
+        )
+        if defer:
+            logger.debug(f"Deferring end token in user message: {text!r}")
+            user_message.content = rest
+        state.deferred_stop = defer
 
 
 class DummyUser(UserSimulator):

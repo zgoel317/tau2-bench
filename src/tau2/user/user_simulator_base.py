@@ -58,6 +58,8 @@ class UserState(BaseModel):
 
     system_messages: list[SystemMessage]
     messages: list[APICompatibleMessage]
+    # True when the last text message had its end token stripped (text mode only)
+    deferred_stop: bool = False
 
     def flip_roles(self) -> list[APICompatibleMessage]:
         """
